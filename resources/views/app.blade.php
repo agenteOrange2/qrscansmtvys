@@ -32,13 +32,13 @@
 
         @php
             $brandName = \App\Models\Setting::get('branding.app_name') ?: config('app.name', 'Laravel');
-            $brandFavicon = \App\Models\Setting::get('branding.favicon');
+            $brandFavicon = \App\Models\Setting::assetUrl('branding.favicon');
         @endphp
 
         <title inertia>{{ $brandName }}</title>
 
         @if ($brandFavicon)
-            <link rel="icon" href="{{ \Illuminate\Support\Facades\Storage::url($brandFavicon) }}">
+            <link rel="icon" href="{{ $brandFavicon }}">
         @else
             <link rel="icon" href="/favicon.ico" sizes="any">
             <link rel="icon" href="/favicon.svg" type="image/svg+xml">
