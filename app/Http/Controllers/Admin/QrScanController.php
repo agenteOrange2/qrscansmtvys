@@ -7,9 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreQrScanRequest;
 use App\Http\Requests\Admin\StoreScanGroupRequest;
 use App\Http\Requests\Admin\UpdateQrScanRequest;
+use App\Jobs\SendScanGroupToBitrix;
+use App\Jobs\SendScanToBitrix;
 use App\Models\Marca;
 use App\Models\QrScan;
 use App\Models\ScanGroup;
+use App\Services\Bitrix24Service;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -95,6 +98,7 @@ class QrScanController extends Controller
             return response()->json([
                 'error' => 'Este usuario ya fue registrado previamente.',
                 'existingScanId' => $existing->id,
+                'bitrixEnabled' => Bitrix24Service::isEnabled(),
             ], 409);
         }
 
@@ -108,6 +112,8 @@ class QrScanController extends Controller
 
             return $scan;
         });
+
+        $this->queueBitrixSync($scan);
 
         return response()->json([
             'message' => 'Escaneo guardado exitosamente.',
@@ -155,6 +161,8 @@ class QrScanController extends Controller
             $pending[] = $scanData;
         }
 
+        $existingIds = array_values(array_filter(array_column($duplicates, 'existingScanId')));
+
         if ($pending === []) {
             return response()->json([
                 'error' => 'Todos los contactos del grupo ya estaban registrados.',
@@ -162,12 +170,14 @@ class QrScanController extends Controller
             ], 409);
         }
 
-        $group = DB::transaction(function () use ($data, $pending) {
+        [$group, $scans] = DB::transaction(function () use ($data, $pending) {
             $group = ScanGroup::create([
                 'user_id' => Auth::id(),
                 'empresa' => $data['empresa'] ?? ($pending[0]['empresa'] ?? null),
                 'notas' => $data['notas'] ?? null,
             ]);
+
+            $scans = [];
 
             foreach ($pending as $scanData) {
                 $scan = QrScan::create([
@@ -178,10 +188,24 @@ class QrScanController extends Controller
                 ]);
 
                 $this->syncMarcas($scan, $data['marcas'] ?? []);
+
+                $scans[] = $scan;
             }
 
-            return $group;
+            return [$group, $scans];
         });
+
+        // Un grupo genera UN SOLO deal con todos sus contactos (incluidos
+        // los ya registrados, que se agregan con su información existente).
+        if (Bitrix24Service::isEnabled()) {
+            $group->forceFill(['bitrix_status' => QrScan::BITRIX_PENDING])->save();
+
+            foreach ($scans as $scan) {
+                $scan->forceFill(['bitrix_status' => QrScan::BITRIX_PENDING])->save();
+            }
+
+            SendScanGroupToBitrix::dispatchAfterResponse($group, $existingIds);
+        }
 
         return response()->json([
             'message' => sprintf('Grupo guardado: %d contacto(s) registrados.', count($pending)),
@@ -189,6 +213,93 @@ class QrScanController extends Controller
             'saved' => count($pending),
             'duplicates' => $duplicates,
         ], 201);
+    }
+
+    /**
+     * Re-escaneo confirmado de un contacto ya registrado: actualiza su registro
+     * con los datos nuevos (lo vacío conserva lo anterior), agrega las marcas
+     * seleccionadas, cuenta el re-escaneo y crea un nuevo deal en Bitrix24.
+     */
+    public function rescan(StoreQrScanRequest $request, QrScan $scan): JsonResponse
+    {
+        $data = $request->validated();
+
+        DB::transaction(function () use ($scan, $data) {
+            $updates = [];
+
+            foreach (['nombre', 'apellidos', 'puesto', 'empresa', 'estado', 'telefono', 'rol', 'correo'] as $field) {
+                $value = trim((string) ($data[$field] ?? ''));
+
+                if ($value !== '') {
+                    $updates[$field] = $value;
+                }
+            }
+
+            $nuevosCampos = array_values(array_filter(
+                $data['campos_adicionales'] ?? [],
+                fn ($linea) => trim((string) $linea) !== '',
+            ));
+
+            if ($nuevosCampos !== []) {
+                $updates['campos_adicionales'] = array_values(array_unique([
+                    ...($scan->campos_adicionales ?? []),
+                    ...$nuevosCampos,
+                ]));
+            }
+
+            $scan->forceFill([
+                ...$updates,
+                'rescan_count' => $scan->rescan_count + 1,
+                'last_scanned_at' => now(),
+            ])->save();
+
+            foreach ($data['marcas'] ?? [] as $marca) {
+                $comentario = $marca['comentarios'] ?? null;
+
+                if ($scan->marcas()->where('marca_id', $marca['id'])->exists()) {
+                    if ($comentario !== null && trim($comentario) !== '') {
+                        $scan->marcas()->updateExistingPivot($marca['id'], ['comentarios' => $comentario]);
+                    }
+                } else {
+                    $scan->marcas()->attach($marca['id'], ['comentarios' => $comentario]);
+                }
+            }
+        });
+
+        $bitrixEnabled = Bitrix24Service::isEnabled();
+
+        if ($bitrixEnabled) {
+            $scan->forceFill(['bitrix_status' => QrScan::BITRIX_PENDING])->save();
+
+            SendScanToBitrix::dispatchAfterResponse($scan, true);
+        }
+
+        return response()->json([
+            'message' => $bitrixEnabled
+                ? 'Registro actualizado y nuevo deal enviado a Bitrix24.'
+                : 'Registro actualizado.',
+        ]);
+    }
+
+    /**
+     * Crea un nuevo deal en Bitrix24 para un contacto ya capturado,
+     * sin modificar sus datos (acción "Reenviar" de la tabla).
+     */
+    public function resendBitrix(QrScan $usuarios_capturado): JsonResponse
+    {
+        if (! Bitrix24Service::isEnabled()) {
+            return response()->json([
+                'error' => 'La integración con Bitrix24 está deshabilitada o sin configurar.',
+            ], 422);
+        }
+
+        $usuarios_capturado->forceFill(['bitrix_status' => QrScan::BITRIX_PENDING])->save();
+
+        SendScanToBitrix::dispatchAfterResponse($usuarios_capturado, true);
+
+        return response()->json([
+            'message' => 'Se está enviando un nuevo deal a Bitrix24 con la información del contacto.',
+        ]);
     }
 
     public function edit(QrScan $usuarios_capturado): Response
@@ -272,6 +383,21 @@ class QrScanController extends Controller
         }
 
         return QrScan::where('correo', $correo)->first();
+    }
+
+    /**
+     * Envía el escaneo a Bitrix24 como deal justo después de responder
+     * (sin worker de colas — el hosting es cPanel sin terminal).
+     */
+    private function queueBitrixSync(QrScan $scan): void
+    {
+        if (! Bitrix24Service::isEnabled()) {
+            return;
+        }
+
+        $scan->forceFill(['bitrix_status' => QrScan::BITRIX_PENDING])->save();
+
+        SendScanToBitrix::dispatchAfterResponse($scan);
     }
 
     /**

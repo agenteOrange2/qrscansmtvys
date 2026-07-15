@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { Link, router } from '@inertiajs/vue3';
+import axios from 'axios';
+import { computed, ref, watch } from 'vue';
 import Button from '@/components/Base/Button';
 import { FormCheck, FormInput, FormSelect } from '@/components/Base/Form';
 import { Dialog } from '@/components/Base/Headless';
 import Lucide from '@/components/Base/Lucide';
 import RazeLayout from '@/layouts/RazeLayout.vue';
-import { Link, router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { notify } from '@/lib/notify';
 
 interface ScanRow {
     id: number;
@@ -17,6 +19,8 @@ interface ScanRow {
     telefono: string | null;
     correo: string | null;
     scan_group_id: number | null;
+    rescan_count: number;
+    last_scanned_at: string | null;
     created_at: string;
     user?: { id: number; name: string; last_name: string | null } | null;
     group?: { id: number; empresa: string | null } | null;
@@ -103,6 +107,29 @@ function formatDate(value: string): string {
         hour: '2-digit',
         minute: '2-digit',
     });
+}
+
+const resendingId = ref<number | null>(null);
+
+async function resendToBitrix(scan: ScanRow): Promise<void> {
+    resendingId.value = scan.id;
+
+    try {
+        const { data } = await axios.post(
+            route('admin.usuarios-capturados.resend-bitrix', scan.id),
+        );
+
+        notify(data.message);
+    } catch (error) {
+        const message =
+            axios.isAxiosError(error) && error.response?.data?.error
+                ? error.response.data.error
+                : 'No se pudo enviar el deal a Bitrix24.';
+
+        notify(message, 'error');
+    } finally {
+        resendingId.value = null;
+    }
 }
 
 function sortIcon(field: string): string {
@@ -228,8 +255,21 @@ function sortIcon(field: string): string {
                                     <FormCheck.Input v-model="selected" type="checkbox" :value="scan.id" />
                                 </td>
                                 <td class="px-3 py-3">
-                                    <div class="font-medium">{{ scan.nombre }} {{ scan.apellidos }}</div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium">{{ scan.nombre }} {{ scan.apellidos }}</span>
+                                        <span
+                                            v-if="scan.rescan_count > 0"
+                                            class="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning"
+                                            :title="scan.last_scanned_at ? `Último escaneo: ${formatDate(scan.last_scanned_at)}` : ''"
+                                        >
+                                            <Lucide icon="RefreshCw" class="h-3 w-3" />
+                                            ×{{ scan.rescan_count + 1 }}
+                                        </span>
+                                    </div>
                                     <div class="text-xs text-slate-500 lg:hidden">{{ scan.correo }}</div>
+                                    <div v-if="scan.last_scanned_at" class="text-xs text-slate-400">
+                                        Últ. escaneo: {{ formatDate(scan.last_scanned_at) }}
+                                    </div>
                                 </td>
                                 <td class="hidden px-3 py-3 lg:table-cell">
                                     <div>{{ scan.correo || '—' }}</div>
@@ -257,6 +297,19 @@ function sortIcon(field: string): string {
                                 </td>
                                 <td class="px-3 py-3">
                                     <div class="flex justify-end gap-1">
+                                        <button
+                                            type="button"
+                                            class="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-success dark:hover:bg-darkmode-400"
+                                            title="Reenviar a Bitrix24 (nuevo deal)"
+                                            :disabled="resendingId === scan.id"
+                                            @click="resendToBitrix(scan)"
+                                        >
+                                            <Lucide
+                                                :icon="resendingId === scan.id ? 'Loader' : 'Send'"
+                                                class="h-4 w-4"
+                                                :class="resendingId === scan.id ? 'animate-spin' : ''"
+                                            />
+                                        </button>
                                         <Link
                                             :href="route('admin.usuarios-capturados.edit', scan.id)"
                                             class="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary dark:hover:bg-darkmode-400"
@@ -284,6 +337,7 @@ function sortIcon(field: string): string {
                     </div>
                     <nav class="flex flex-wrap gap-1 sm:ml-auto">
                         <template v-for="(link, index) in scans.links" :key="index">
+                            <!-- eslint-disable vue/no-v-text-v-html-on-component -- etiquetas del paginador de Laravel (confiables) -->
                             <component
                                 :is="link.url ? Link : 'span'"
                                 :href="link.url ?? undefined"
@@ -298,6 +352,7 @@ function sortIcon(field: string): string {
                                 ]"
                                 v-html="link.label"
                             />
+                            <!-- eslint-enable vue/no-v-text-v-html-on-component -->
                         </template>
                     </nav>
                 </div>

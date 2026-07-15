@@ -30,11 +30,20 @@
             }
         </style>
 
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        @php
+            $brandName = \App\Models\Setting::get('branding.app_name') ?: config('app.name', 'Laravel');
+            $brandFavicon = \App\Models\Setting::get('branding.favicon');
+        @endphp
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <title inertia>{{ $brandName }}</title>
+
+        @if ($brandFavicon)
+            <link rel="icon" href="{{ \Illuminate\Support\Facades\Storage::url($brandFavicon) }}">
+        @else
+            <link rel="icon" href="/favicon.ico" sizes="any">
+            <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+            <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        @endif
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />

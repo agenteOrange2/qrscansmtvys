@@ -13,7 +13,7 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $permissions = ['dashboard', 'scan', 'captura', 'users', 'roles'];
+        $permissions = ['dashboard', 'scan', 'captura', 'users', 'roles', 'integraciones', 'branding'];
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);

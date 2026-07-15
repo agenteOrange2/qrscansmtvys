@@ -144,7 +144,7 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Features::registration(), // Deshabilitado: el registro público no está permitido; los usuarios se crean desde el admin.
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

@@ -37,6 +37,13 @@ const items: Array<MenuItem | string> = [
     title: 'Marcas',
     permission: 'scan',
   },
+  'INTEGRACIONES',
+  {
+    icon: 'Plug',
+    pageName: 'admin.integraciones.bitrix.edit',
+    title: 'Bitrix24 CRM',
+    permission: 'integraciones',
+  },
   'ADMINISTRACIÓN',
   {
     icon: 'UserCog',

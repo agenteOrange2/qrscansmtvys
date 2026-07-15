@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class QrScan extends Model
 {
+    public const BITRIX_PENDING = 'pending';
+
+    public const BITRIX_SENT = 'sent';
+
+    public const BITRIX_FAILED = 'failed';
+
     /**
      * @var list<string>
      */
@@ -32,6 +38,8 @@ class QrScan extends Model
     {
         return [
             'campos_adicionales' => 'array',
+            'bitrix_synced_at' => 'datetime',
+            'last_scanned_at' => 'datetime',
         ];
     }
 

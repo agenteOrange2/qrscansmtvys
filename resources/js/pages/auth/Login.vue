@@ -1,13 +1,45 @@
 <script setup lang="ts">
-import { useForm, Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import Button from '@/components/Base/Button';
 import { FormCheck, FormInput, FormLabel } from '@/components/Base/Form';
 import Lucide from '@/components/Base/Lucide';
+import { useAppearance } from '@/composables/useAppearance';
+import type { Branding } from '@/types';
 
 defineProps<{
     canResetPassword?: boolean;
+    canRegister?: boolean;
     status?: string;
 }>();
+
+const page = usePage();
+
+const branding = computed(() => page.props.branding as Branding | undefined);
+
+const loginTitle = computed(
+    () => branding.value?.loginTitle || `Bienvenido a ${branding.value?.appName ?? 'ScanQR'}`,
+);
+const loginSubtitle = computed(
+    () => branding.value?.loginSubtitle || 'Ingresa tus credenciales para acceder',
+);
+const heroTitle = computed(
+    () => branding.value?.heroTitle || 'Escaneo QR\npara eventos',
+);
+const heroSubtitle = computed(
+    () =>
+        branding.value?.heroSubtitle ||
+        'Captura los contactos de tus eventos y envíalos directo a tu CRM.',
+);
+const brandImage = computed(
+    () => branding.value?.iconUrl ?? branding.value?.logoUrl ?? null,
+);
+
+const { appearance, updateAppearance } = useAppearance();
+
+const toggleDarkMode = () => {
+    updateAppearance(appearance.value === 'dark' ? 'light' : 'dark');
+};
 
 const form = useForm({
     email: '',
@@ -26,56 +58,89 @@ const submit = () => {
 
 <template>
   <Head title="Iniciar Sesión" />
+
+  <!-- Dark mode toggle -->
+  <button
+    type="button"
+    class="fixed top-5 right-5 z-[100] flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+    :title="appearance === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+    @click="toggleDarkMode"
+  >
+    <Lucide :icon="appearance === 'dark' ? 'Sun' : 'Moon'" class="h-[18px] w-[18px]" />
+  </button>
+
   <div
     class="container grid lg:h-screen grid-cols-12 lg:max-w-[1550px] 2xl:max-w-[1750px] py-10 px-5 sm:py-14 sm:px-10 md:px-36 lg:py-0 lg:pl-14 lg:pr-12 xl:px-24"
   >
     <div
       :class="[
-        'relative z-50 h-full col-span-12 p-7 sm:p-14 bg-white rounded-2xl lg:bg-transparent lg:pr-10 lg:col-span-5 xl:pr-24 2xl:col-span-4 lg:p-0',
-        'before:content-[\'\'] before:absolute before:inset-0 before:-mb-3.5 before:bg-white/40 before:rounded-2xl before:mx-5',
+        'relative z-50 h-full col-span-12 p-7 sm:p-14 bg-white dark:bg-darkmode-600 rounded-2xl lg:bg-transparent lg:dark:bg-transparent lg:pr-10 lg:col-span-5 xl:pr-24 2xl:col-span-4 lg:p-0',
+        'before:content-[\'\'] before:absolute before:inset-0 before:-mb-3.5 before:bg-white/40 dark:before:bg-darkmode-400/40 before:rounded-2xl before:mx-5',
       ]"
     >
       <div
         class="relative z-10 flex flex-col justify-center w-full h-full py-2 lg:py-32"
       >
+        <!-- Logo / ícono -->
         <div class="rounded-[0.8rem] w-[55px] h-[55px] border border-primary/30 flex items-center justify-center">
-          <div class="relative flex items-center justify-center w-[50px] rounded-[0.6rem] h-[50px] bg-linear-to-b from-theme-1/90 to-theme-2/90 bg-white">
-            <Lucide icon="Truck" class="w-8 h-8 text-primary" />
+          <div class="relative flex items-center justify-center w-[50px] rounded-[0.6rem] h-[50px] bg-linear-to-b from-theme-1/90 to-theme-2/90 bg-white overflow-hidden">
+            <img
+              v-if="brandImage"
+              :src="brandImage"
+              :alt="branding?.appName ?? 'Logo'"
+              class="w-9 h-9 object-contain"
+            />
+            <Lucide v-else icon="QrCode" class="w-8 h-8 text-white" />
           </div>
         </div>
+
         <div class="mt-10">
-          <div class="text-2xl font-medium">EFService Login</div>
-          <div class="mt-2.5 text-slate-600">
-            Ingresa tus credenciales para acceder
+          <img
+            v-if="branding?.logoUrl"
+            :src="branding.logoUrl"
+            :alt="branding?.appName ?? 'Logo'"
+            class="mb-5 max-h-12 max-w-[220px] object-contain"
+          />
+          <div class="text-2xl font-medium">{{ loginTitle }}</div>
+          <div class="mt-2.5 text-slate-600 dark:text-slate-400">
+            {{ loginSubtitle }}
           </div>
 
-          <div v-if="status" class="mt-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg text-sm">
+          <div
+            v-if="status"
+            class="mt-4 p-3 bg-green-100 border border-green-400 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300 rounded-lg text-sm"
+          >
             {{ status }}
           </div>
 
-          <div v-if="form.errors.email || form.errors.password" class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+          <div
+            v-if="form.errors.email || form.errors.password"
+            class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300 rounded-lg text-sm"
+          >
             <p v-if="form.errors.email">{{ form.errors.email }}</p>
             <p v-if="form.errors.password">{{ form.errors.password }}</p>
           </div>
 
           <form @submit.prevent="submit" class="mt-6">
-            <FormLabel>Email*</FormLabel>
+            <FormLabel>Correo electrónico*</FormLabel>
             <FormInput
               v-model="form.email"
               type="email"
-              class="block px-4 py-3.5 rounded-[0.6rem] border-slate-300/80"
+              class="block px-4 py-3.5 rounded-[0.6rem] border-slate-300/80 dark:border-darkmode-400"
               placeholder="correo@ejemplo.com"
+              autocomplete="username"
               required
             />
-            <FormLabel class="mt-4">Password*</FormLabel>
+            <FormLabel class="mt-4">Contraseña*</FormLabel>
             <FormInput
               v-model="form.password"
               type="password"
-              class="block px-4 py-3.5 rounded-[0.6rem] border-slate-300/80"
+              class="block px-4 py-3.5 rounded-[0.6rem] border-slate-300/80 dark:border-darkmode-400"
               placeholder="************"
+              autocomplete="current-password"
               required
             />
-            <div class="flex items-center justify-between mt-4 text-xs text-slate-500 sm:text-sm">
+            <div class="flex items-center justify-between mt-4 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
               <label class="flex items-center cursor-pointer select-none">
                 <FormCheck.Input
                   id="remember-me"
@@ -105,7 +170,10 @@ const submit = () => {
                 {{ form.processing ? 'Ingresando...' : 'Iniciar Sesión' }}
               </Button>
             </div>
-            <div class="mt-4 text-center text-xs text-slate-500 sm:text-sm">
+            <div
+              v-if="canRegister"
+              class="mt-4 text-center text-xs text-slate-500 dark:text-slate-400 sm:text-sm"
+            >
               ¿No tienes cuenta?
               <Link :href="route('register')" class="text-primary font-medium">
                 Regístrate
@@ -116,12 +184,13 @@ const submit = () => {
       </div>
     </div>
   </div>
+
   <div class="fixed container grid w-screen inset-0 h-screen grid-cols-12 lg:max-w-[1550px] 2xl:max-w-[1750px] pl-14 pr-12 xl:px-24">
     <div
       :class="[
         'relative h-screen col-span-12 lg:col-span-5 2xl:col-span-4 z-20',
-        'after:bg-white after:hidden after:lg:block after:content-[\'\'] after:absolute after:right-0 after:inset-y-0 after:bg-linear-to-b after:from-white after:to-slate-100/80 after:w-[800%] after:rounded-[0_1.2rem_1.2rem_0/0_1.7rem_1.7rem_0]',
-        'before:content-[\'\'] before:hidden before:lg:block before:absolute before:right-0 before:inset-y-0 before:my-6 before:bg-linear-to-b before:from-white/10 before:to-slate-50/10 before:bg-white/50 before:w-[800%] before:-mr-4 before:rounded-[0_1.2rem_1.2rem_0/0_1.7rem_1.7rem_0]',
+        'after:bg-white after:hidden after:lg:block after:content-[\'\'] after:absolute after:right-0 after:inset-y-0 after:bg-linear-to-b after:from-white after:to-slate-100/80 dark:after:from-darkmode-800 dark:after:to-darkmode-700 after:w-[800%] after:rounded-[0_1.2rem_1.2rem_0/0_1.7rem_1.7rem_0]',
+        'before:content-[\'\'] before:hidden before:lg:block before:absolute before:right-0 before:inset-y-0 before:my-6 before:bg-linear-to-b before:from-white/10 before:to-slate-50/10 before:bg-white/50 dark:before:bg-darkmode-600/50 before:w-[800%] before:-mr-4 before:rounded-[0_1.2rem_1.2rem_0/0_1.7rem_1.7rem_0]',
       ]"
     ></div>
     <div
@@ -134,12 +203,9 @@ const submit = () => {
       <div
         class="sticky top-0 z-10 flex-col justify-center hidden h-screen ml-16 lg:flex xl:ml-28 2xl:ml-36"
       >
-        <div class="leading-[1.4] text-[2.6rem] xl:text-5xl font-medium xl:leading-[1.2] text-white">
-          Sistema de <br />
-          Transporte
-        </div>
+        <div class="leading-[1.4] text-[2.6rem] xl:text-5xl font-medium xl:leading-[1.2] text-white whitespace-pre-line">{{ heroTitle }}</div>
         <div class="mt-5 text-base leading-relaxed xl:text-lg text-white/70">
-          Gestiona tus conductores, vehículos y viajes desde un solo lugar.
+          {{ heroSubtitle }}
         </div>
       </div>
     </div>

@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -37,9 +39,27 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        $assetUrl = function (string $key): ?string {
+            $path = Setting::get("branding.{$key}");
+
+            return $path !== null && $path !== '' ? Storage::url($path) : null;
+        };
+
+        $branding = [
+            'appName' => Setting::get('branding.app_name') ?: config('app.name'),
+            'loginTitle' => Setting::get('branding.login_title') ?: null,
+            'loginSubtitle' => Setting::get('branding.login_subtitle') ?: null,
+            'heroTitle' => Setting::get('branding.hero_title') ?: null,
+            'heroSubtitle' => Setting::get('branding.hero_subtitle') ?: null,
+            'logoUrl' => $assetUrl('logo'),
+            'iconUrl' => $assetUrl('icon'),
+            'faviconUrl' => $assetUrl('favicon'),
+        ];
+
         return [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name' => $branding['appName'],
+            'branding' => $branding,
             'auth' => [
                 'user' => $user,
                 'roles' => $user?->getRoleNames() ?? [],

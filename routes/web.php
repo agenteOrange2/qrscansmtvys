@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BitrixSettingController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MarcaController;
 use App\Http\Controllers\Admin\PermissionController;
@@ -26,6 +27,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('scan', [QrScanController::class, 'scan'])->name('scan');
         Route::post('scan', [QrScanController::class, 'store'])->name('scan.store');
         Route::post('scan/grupo', [QrScanController::class, 'storeGroup'])->name('scan.store-group');
+        Route::post('scan/{scan}/reescanear', [QrScanController::class, 'rescan'])->name('scan.rescan');
     });
 
     Route::middleware('can:captura')->group(function () {
@@ -33,6 +35,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->name('usuarios-capturados.export');
         Route::delete('usuarios-capturados', [QrScanController::class, 'destroyMany'])
             ->name('usuarios-capturados.destroy-many');
+        Route::post('usuarios-capturados/{usuarios_capturado}/reenviar-bitrix', [QrScanController::class, 'resendBitrix'])
+            ->name('usuarios-capturados.resend-bitrix');
         Route::resource('usuarios-capturados', QrScanController::class)
             ->only(['index', 'edit', 'update', 'destroy'])
             ->parameters(['usuarios-capturados' => 'usuarios_capturado']);
@@ -49,6 +53,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:roles')->group(function () {
         Route::resource('roles', RoleController::class)->except(['show']);
         Route::resource('permissions', PermissionController::class)->only(['index', 'store', 'update', 'destroy']);
+    });
+
+    Route::middleware('can:integraciones')->prefix('integraciones/bitrix')->name('integraciones.bitrix.')->group(function () {
+        Route::get('/', [BitrixSettingController::class, 'edit'])->name('edit');
+        Route::put('/', [BitrixSettingController::class, 'update'])->name('update');
+        Route::post('probar', [BitrixSettingController::class, 'test'])->name('test');
+        Route::post('pipelines', [BitrixSettingController::class, 'pipelines'])->name('pipelines');
+        Route::post('etapas', [BitrixSettingController::class, 'stages'])->name('stages');
+        Route::post('sincronizar', [BitrixSettingController::class, 'syncPending'])->name('sync');
     });
 });
 

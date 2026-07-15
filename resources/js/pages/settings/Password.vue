@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import Button from '@/components/Base/Button/Button.vue';
 import { FormInput, FormLabel } from '@/components/Base/Form';
-import Lucide from '@/components/Base/Lucide';
+import SettingsNav from '@/components/SettingsNav.vue';
 import RazeLayout from '@/layouts/RazeLayout.vue';
 
 const form = useForm({
@@ -34,36 +34,7 @@ const submit = () => {
       <div class="col-span-12">
         <div class="flex flex-col lg:flex-row gap-6">
           <!-- Sidebar Nav -->
-          <div class="w-full lg:w-52 flex-shrink-0">
-            <div class="box box--stacked p-1.5">
-              <nav class="flex flex-col">
-                <Link
-                  :href="route('admin.settings.profile.edit')"
-                  class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkmode-400 transition-colors"
-                >
-                  <Lucide icon="User" class="w-4 h-4 mr-2.5" />
-                  Perfil
-                </Link>
-                <Link
-                  :href="route('admin.settings.password.edit')"
-                  :class="[
-                    'flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    'bg-primary/10 text-primary',
-                  ]"
-                >
-                  <Lucide icon="Lock" class="w-4 h-4 mr-2.5" />
-                  Contraseña
-                </Link>
-                <Link
-                  :href="route('admin.settings.appearance.edit')"
-                  class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkmode-400 transition-colors"
-                >
-                  <Lucide icon="Sun" class="w-4 h-4 mr-2.5" />
-                  Apariencia
-                </Link>
-              </nav>
-            </div>
-          </div>
+          <SettingsNav current="password" />
 
           <!-- Content -->
           <div class="flex-1">

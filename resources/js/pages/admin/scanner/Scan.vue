@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { FormCheck, FormInput, FormLabel, FormSelect, FormTextarea } from '@/components/Base/Form';
+import { Link } from '@inertiajs/vue3';
+import axios from 'axios';
+import { reactive, ref } from 'vue';
 import Button from '@/components/Base/Button';
+import { FormCheck, FormInput, FormLabel, FormSelect, FormTextarea } from '@/components/Base/Form';
 import { Dialog } from '@/components/Base/Headless';
 import Lucide from '@/components/Base/Lucide';
 import QrScanner from '@/components/QrScanner.vue';
 import RazeLayout from '@/layouts/RazeLayout.vue';
 import { estadosMexico } from '@/lib/estados';
 import { notify } from '@/lib/notify';
-import { emptyContact, parseQrData, type ScannedContact } from '@/lib/qr';
-import { Link } from '@inertiajs/vue3';
-import axios from 'axios';
-import { reactive, ref } from 'vue';
+import { emptyContact, parseQrData  } from '@/lib/qr';
+import type {ScannedContact} from '@/lib/qr';
 
 interface Marca {
     id: number;
@@ -46,7 +47,12 @@ const selectedMarcas = reactive<Record<number, { checked: boolean; comentarios: 
 );
 
 // --- Diálogos ---
-const duplicateDialog = reactive({ open: false, existingScanId: null as number | null });
+const duplicateDialog = reactive({
+    open: false,
+    existingScanId: null as number | null,
+    bitrixEnabled: false,
+});
+const rescanning = ref(false);
 const groupResultDialog = reactive({
     open: false,
     saved: 0,
@@ -183,6 +189,7 @@ async function submitIndividual(): Promise<void> {
     } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 409) {
             duplicateDialog.existingScanId = error.response.data.existingScanId ?? null;
+            duplicateDialog.bitrixEnabled = error.response.data.bitrixEnabled ?? false;
             duplicateDialog.open = true;
         } else if (axios.isAxiosError(error) && error.response?.status === 422) {
             notify(firstValidationError(error.response.data.errors), 'error');
@@ -242,6 +249,39 @@ async function submitGroup(): Promise<void> {
         }
     } finally {
         saving.value = false;
+    }
+}
+
+async function rescanExisting(): Promise<void> {
+    if (!duplicateDialog.existingScanId) return;
+
+    rescanning.value = true;
+
+    try {
+        const camposAdicionales = [...contact.value.campos_adicionales];
+
+        if (extraInfo.value.trim()) camposAdicionales.push(extraInfo.value.trim());
+
+        const { data } = await axios.post(
+            route('admin.scan.rescan', duplicateDialog.existingScanId),
+            {
+                ...contact.value,
+                campos_adicionales: camposAdicionales,
+                marcas: buildMarcasPayload(),
+            },
+        );
+
+        notify(data.message);
+        duplicateDialog.open = false;
+        resetIndividual();
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 422) {
+            notify(firstValidationError(error.response.data.errors), 'error');
+        } else {
+            notify('No se pudo re-escanear el contacto. Intenta de nuevo.', 'error');
+        }
+    } finally {
+        rescanning.value = false;
     }
 }
 
@@ -468,7 +508,7 @@ function scanAnother(): void {
                                     Marcas de interés
                                 </h2>
                                 <div v-if="marcas.length === 0" class="text-sm text-slate-400">No hay marcas registradas.</div>
-                                <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div v-else class="flex flex-col gap-3">
                                     <div
                                         v-for="marca in marcas"
                                         :key="marca.id"
@@ -583,7 +623,7 @@ function scanAnother(): void {
                                 </h2>
                                 <p class="mb-4 text-xs text-slate-500">Se asociarán a todos los contactos del grupo.</p>
                                 <div v-if="marcas.length === 0" class="text-sm text-slate-400">No hay marcas registradas.</div>
-                                <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div v-else class="flex flex-col gap-3">
                                     <div
                                         v-for="marca in marcas"
                                         :key="marca.id"
@@ -637,16 +677,33 @@ function scanAnother(): void {
                 <p class="mt-2 text-sm text-slate-500">
                     Este contacto ya fue registrado previamente en el sistema.
                 </p>
-                <div class="mt-5 flex justify-center gap-3">
+                <p
+                    v-if="duplicateDialog.existingScanId"
+                    class="mt-2 text-sm text-slate-500"
+                >
+                    Puedes volver a escanearlo: se actualizan sus datos{{
+                        duplicateDialog.bitrixEnabled ? ' y se crea un nuevo deal en Bitrix24' : ''
+                    }}.
+                </p>
+                <div class="mt-5 flex flex-wrap justify-center gap-3">
                     <Button
                         v-if="duplicateDialog.existingScanId"
                         :as="Link"
-                        variant="outline-primary"
+                        variant="outline-secondary"
                         :href="route('admin.usuarios-capturados.edit', duplicateDialog.existingScanId)"
                     >
                         Ver registro
                     </Button>
-                    <Button variant="primary" @click="scanAnother">Escanear otro</Button>
+                    <Button
+                        v-if="duplicateDialog.existingScanId"
+                        variant="primary"
+                        :disabled="rescanning"
+                        @click="rescanExisting"
+                    >
+                        <Lucide icon="RefreshCw" class="mr-2 h-4 w-4" :class="rescanning ? 'animate-spin' : ''" />
+                        {{ rescanning ? 'Enviando…' : 'Volver a escanear' }}
+                    </Button>
+                    <Button variant="outline-primary" @click="scanAnother">Escanear otro</Button>
                 </div>
             </Dialog.Panel>
         </Dialog>

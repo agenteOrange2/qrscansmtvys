@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\BrandingController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
@@ -20,4 +21,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin/settings')->name('admin.s
     Route::inertia('appearance', 'settings/Appearance')->name('appearance.edit');
 
     Route::get('two-factor', [TwoFactorAuthenticationController::class, 'show'])->name('two-factor.show');
+
+    Route::middleware('can:branding')->group(function () {
+        Route::get('branding', [BrandingController::class, 'edit'])->name('branding.edit');
+        Route::put('branding', [BrandingController::class, 'update'])->name('branding.update');
+        Route::delete('branding/{asset}', [BrandingController::class, 'destroyAsset'])
+            ->whereIn('asset', ['logo', 'icon', 'favicon'])
+            ->name('branding.destroy-asset');
+    });
 });
