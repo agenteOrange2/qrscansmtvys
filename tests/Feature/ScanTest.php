@@ -68,10 +68,10 @@ test('a duplicate email returns 409 with the existing scan id', function () {
         ->assertJson(['existingScanId' => $existing->id]);
 });
 
-test('a group of scans is stored together in one operation', function () {
+test('a group of scans is stored together in one operation without a size cap', function () {
     $marca = Marca::create(['nombre' => 'Marca Uno']);
 
-    $scans = collect(range(1, 5))->map(fn (int $i) => [
+    $scans = collect(range(1, 12))->map(fn (int $i) => [
         'nombre' => "Contacto {$i}",
         'correo' => "contacto{$i}@empresa.com",
     ])->all();
@@ -83,12 +83,12 @@ test('a group of scans is stored together in one operation', function () {
         'marcas' => [['id' => $marca->id, 'comentarios' => 'Todos interesados']],
     ]);
 
-    $response->assertCreated()->assertJson(['saved' => 5]);
+    $response->assertCreated()->assertJson(['saved' => 12]);
 
     $group = ScanGroup::first();
     expect($group)->not->toBeNull()
         ->and($group->empresa)->toBe('Empresa Grupal')
-        ->and($group->scans)->toHaveCount(5)
+        ->and($group->scans)->toHaveCount(12)
         ->and($group->scans->every(fn (QrScan $scan) => $scan->marcas->count() === 1))->toBeTrue();
 });
 

@@ -10,7 +10,7 @@ import { notify } from '@/lib/notify';
 import { emptyContact, parseQrData, type ScannedContact } from '@/lib/qr';
 import { Link } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 
 interface Marca {
     id: number;
@@ -22,9 +22,6 @@ interface Marca {
 const props = defineProps<{
     marcas: Marca[];
 }>();
-
-const GROUP_TARGET = 5;
-const GROUP_MAX = 10;
 
 const mode = ref<'individual' | 'grupo'>('individual');
 const paused = ref(false);
@@ -56,8 +53,6 @@ const groupResultDialog = reactive({
     duplicates: [] as Array<{ correo: string; motivo: string }>,
 });
 
-const groupProgress = computed(() => Math.min((queue.value.length / GROUP_TARGET) * 100, 100));
-
 function switchMode(newMode: 'individual' | 'grupo'): void {
     mode.value = newMode;
     paused.value = false;
@@ -82,12 +77,6 @@ function onDetect(raw: string): void {
     }
 
     // Modo grupal: acumular y seguir escaneando
-    if (queue.value.length >= GROUP_MAX) {
-        notify(`Máximo ${GROUP_MAX} contactos por grupo. Guarda el grupo actual primero.`, 'warning');
-
-        return;
-    }
-
     const correo = parsed.correo.toLowerCase();
 
     if (correo && queue.value.some((item) => item.correo.toLowerCase() === correo)) {
@@ -103,8 +92,8 @@ function onDetect(raw: string): void {
     }
 
     notify(
-        `${parsed.nombre || 'Contacto'} agregado (${queue.value.length}/${GROUP_TARGET})`,
-        queue.value.length >= GROUP_TARGET ? 'info' : 'success',
+        `${parsed.nombre || 'Contacto'} agregado · ${queue.value.length} en el grupo`,
+        'success',
         2500,
     );
 }
@@ -117,8 +106,6 @@ function addManual(): void {
 
         return;
     }
-
-    if (queue.value.length >= GROUP_MAX) return;
 
     queue.value.push(emptyContact());
     expandedIndex.value = queue.value.length - 1;
@@ -275,7 +262,7 @@ function scanAnother(): void {
                         {{
                             mode === 'individual'
                                 ? 'Escanea un gafete y completa la información antes de guardar.'
-                                : `Escanea hasta ${GROUP_MAX} gafetes de la misma empresa y guárdalos en una sola operación.`
+                                : 'Escanea todos los gafetes que lleguen de la misma empresa (5, 8, 10 o más) y guárdalos en una sola operación.'
                         }}
                     </p>
                 </div>
@@ -314,20 +301,16 @@ function scanAnother(): void {
                     <div class="box p-5">
                         <QrScanner :paused="paused" @detect="onDetect" />
 
-                        <!-- Progreso del grupo -->
-                        <div v-if="mode === 'grupo'" class="mx-auto mt-4 w-full max-w-md">
-                            <div class="mb-1.5 flex items-center justify-between text-sm">
-                                <span class="font-medium">Contactos del grupo</span>
-                                <span :class="queue.length >= GROUP_TARGET ? 'font-semibold text-success' : 'text-slate-500'">
-                                    {{ queue.length }} / {{ GROUP_TARGET }}
-                                </span>
-                            </div>
-                            <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-darkmode-400">
-                                <div
-                                    class="h-full rounded-full bg-success transition-all duration-500"
-                                    :style="{ width: `${groupProgress}%` }"
-                                ></div>
-                            </div>
+                        <!-- Contador del grupo -->
+                        <div v-if="mode === 'grupo'" class="mx-auto mt-4 flex w-full max-w-md items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5 dark:bg-darkmode-400/40">
+                            <span class="text-sm font-medium">Contactos del grupo</span>
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold"
+                                :class="queue.length > 0 ? 'bg-success/15 text-success' : 'bg-slate-200 text-slate-500 dark:bg-darkmode-400'"
+                            >
+                                <Lucide icon="Users" class="h-4 w-4" />
+                                {{ queue.length }}
+                            </span>
                         </div>
 
                         <div class="mx-auto mt-4 flex w-full max-w-md gap-2">

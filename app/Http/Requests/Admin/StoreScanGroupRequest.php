@@ -19,7 +19,7 @@ class StoreScanGroupRequest extends FormRequest
         return [
             'empresa' => ['nullable', 'string', 'max:255'],
             'notas' => ['nullable', 'string', 'max:2000'],
-            'scans' => ['required', 'array', 'min:1', 'max:10'],
+            'scans' => ['required', 'array', 'min:1'],
             'scans.*.nombre' => ['required', 'string', 'max:255'],
             'scans.*.apellidos' => ['nullable', 'string', 'max:255'],
             'scans.*.puesto' => ['nullable', 'string', 'max:255'],
