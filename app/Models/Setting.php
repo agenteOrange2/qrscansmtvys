@@ -36,20 +36,6 @@ class Setting extends Model
         Cache::forget(self::cacheKey($key));
     }
 
-    /**
-     * URL pública de un archivo del disco `public` guardado en un setting.
-     * Usa asset() (esquema + dominio del request actual) en lugar de
-     * Storage::url(), que depende de un APP_URL bien configurado.
-     */
-    public static function assetUrl(string $key): ?string
-    {
-        $path = self::get($key);
-
-        return $path !== null && trim($path) !== ''
-            ? asset('storage/'.ltrim($path, '/'))
-            : null;
-    }
-
     private static function cacheKey(string $key): string
     {
         return "settings.{$key}";

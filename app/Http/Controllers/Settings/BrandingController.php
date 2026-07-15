@@ -92,6 +92,8 @@ class BrandingController extends Controller
 
     private function assetUrl(string $asset): ?string
     {
-        return Setting::assetUrl("branding.{$asset}");
+        $path = Setting::get("branding.{$asset}");
+
+        return $path !== null && $path !== '' ? Storage::url($path) : null;
     }
 }

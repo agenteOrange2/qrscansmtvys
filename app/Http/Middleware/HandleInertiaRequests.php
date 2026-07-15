@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -38,7 +39,11 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        $assetUrl = fn (string $key): ?string => Setting::assetUrl("branding.{$key}");
+        $assetUrl = function (string $key): ?string {
+            $path = Setting::get("branding.{$key}");
+
+            return $path !== null && $path !== '' ? Storage::url($path) : null;
+        };
 
         $branding = [
             'appName' => Setting::get('branding.app_name') ?: config('app.name'),
