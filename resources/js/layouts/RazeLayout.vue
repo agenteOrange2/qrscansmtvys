@@ -1,15 +1,30 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
 import Breadcrumb from '@/components/Base/Breadcrumb';
 import { Menu } from '@/components/Base/Headless';
 import Lucide from '@/components/Base/Lucide';
 import { useAppearance } from '@/composables/useAppearance';
 import { useCompactMenu } from '@/composables/useCompactMenu';
 import { useMenu } from '@/composables/useMenu';
+import { notify } from '@/lib/notify';
+
+const props = defineProps<{
+  title?: string;
+}>();
 
 const page = usePage();
 const auth = computed(() => page.props.auth as any);
+
+// Mensajes flash del backend → toast
+watch(
+  () => page.props.flash as { success?: string; error?: string } | undefined,
+  (flash) => {
+    if (flash?.success) notify(flash.success, 'success');
+    if (flash?.error) notify(flash.error, 'error');
+  },
+  { immediate: true, deep: true },
+);
 
 const { menu } = useMenu();
 const { appearance, updateAppearance } = useAppearance();
@@ -52,6 +67,7 @@ const requestFullscreen = () => {
     'raze',
     'before:content-[\'\'] before:bg-linear-to-b before:from-slate-100 before:to-slate-50 dark:before:from-darkmode-800 dark:before:to-darkmode-800 before:h-screen before:w-full before:fixed before:top-0',
   ]">
+    <Head v-if="props.title" :title="props.title" />
     <!-- BEGIN: Side Menu -->
     <div :class="[
       'xl:ml-0 shadow-xl transition-[margin] duration-300 xl:shadow-none fixed top-0 left-0 z-50 side-menu group',
@@ -81,11 +97,11 @@ const requestFullscreen = () => {
             class="flex items-center transition-[margin] duration-300 group-[.side-menu--collapsed]:xl:ml-2 group-[.side-menu--collapsed.side-menu--on-hover]:xl:ml-0">
             <div
               class="flex items-center justify-center w-[34px] rounded-lg h-[34px] bg-white/8 transition-transform ease-in-out group-[.side-menu--collapsed.side-menu--on-hover]:xl:-rotate-180">
-              <Lucide icon="Truck" class="w-5 h-5 text-white" />
+              <Lucide icon="QrCode" class="w-5 h-5 text-white" />
             </div>
             <div
               class="ml-3.5 group-[.side-menu--collapsed.side-menu--on-hover]:xl:opacity-100 group-[.side-menu--collapsed]:xl:opacity-0 transition-opacity font-medium text-white">
-              EFService
+              ScanQR SMTVYS
             </div>
           </Link>
           <a href="#" @click="toggleCompactMenu"
@@ -142,10 +158,9 @@ const requestFullscreen = () => {
 
             <!-- BEGIN: Breadcrumb -->
             <Breadcrumb class="flex-1 hidden xl:block">
-              <Breadcrumb.Link to="/">App</Breadcrumb.Link>
-              <Breadcrumb.Link to="/dashboard">Dashboards</Breadcrumb.Link>
+              <Breadcrumb.Link to="/admin/dashboard">App</Breadcrumb.Link>
               <Breadcrumb.Link :to="page.url" :active="true">
-                {{ page.props.title || 'Dashboard' }}
+                {{ props.title || (page.props.title as string) || 'Dashboard' }}
               </Breadcrumb.Link>
             </Breadcrumb>
             <!-- END: Breadcrumb -->

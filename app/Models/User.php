@@ -15,7 +15,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasMedia
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable, InteractsWithMedia;
+    use HasFactory, HasRoles, InteractsWithMedia, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -24,9 +24,19 @@ class User extends Authenticatable implements HasMedia
      */
     protected $fillable = [
         'name',
+        'last_name',
         'email',
         'password',
+        'phone',
+        'position',
+        'company',
+        'website',
     ];
+
+    public function qrScans(): HasMany
+    {
+        return $this->hasMany(QrScan::class);
+    }
 
     /**
      * The attributes that should be hidden for serialization.
