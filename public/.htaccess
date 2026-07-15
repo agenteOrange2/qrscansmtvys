@@ -1,3 +1,9 @@
+# LiteSpeed (cPanel): no matar el proceso PHP al cerrar la conexión —
+# los envíos a Bitrix24 corren después de la respuesta (dispatchAfterResponse)
+<IfModule Litespeed>
+    SetEnv noabort 1
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

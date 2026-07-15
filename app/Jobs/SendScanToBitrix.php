@@ -36,6 +36,9 @@ class SendScanToBitrix implements ShouldQueue
 
     public function handle(): void
     {
+        // Corre después de la respuesta HTTP: no abortar si el cliente se desconecta
+        ignore_user_abort(true);
+
         if (! Bitrix24Service::isEnabled()) {
             return;
         }
