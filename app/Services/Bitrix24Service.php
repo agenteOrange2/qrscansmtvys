@@ -130,8 +130,19 @@ class Bitrix24Service
      */
     public function findOrCreateContact(array $contact): int
     {
-        foreach ([['EMAIL', $contact['email'] ?? ''], ['PHONE', $contact['phone'] ?? '']] as [$type, $value]) {
-            if (trim((string) $value) === '') {
+        // Bitrix rechaza el alta completa si el correo no tiene formato válido
+        // (p. ej. "VENTAS@SMTVYS" leído de un QR) — mejor omitir el campo;
+        // el dato crudo queda de todos modos en la descripción del deal.
+        $email = trim((string) ($contact['email'] ?? ''));
+
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            $email = '';
+        }
+
+        $phone = trim((string) ($contact['phone'] ?? ''));
+
+        foreach ([['EMAIL', $email], ['PHONE', $phone]] as [$type, $value]) {
+            if ($value === '') {
                 continue;
             }
 
@@ -150,8 +161,8 @@ class Bitrix24Service
             'NAME' => $contact['name'] ?? '',
             'LAST_NAME' => $contact['last_name'] ?? '',
             'COMPANY_TITLE' => $contact['company'] ?? '',
-            'EMAIL' => ! empty($contact['email']) ? [['VALUE' => $contact['email'], 'VALUE_TYPE' => 'WORK']] : null,
-            'PHONE' => ! empty($contact['phone']) ? [['VALUE' => $contact['phone'], 'VALUE_TYPE' => 'WORK']] : null,
+            'EMAIL' => $email !== '' ? [['VALUE' => $email, 'VALUE_TYPE' => 'WORK']] : null,
+            'PHONE' => $phone !== '' ? [['VALUE' => $phone, 'VALUE_TYPE' => 'WORK']] : null,
             'SOURCE_ID' => 'WEB',
         ]);
 
